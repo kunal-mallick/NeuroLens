@@ -1,7 +1,9 @@
 stages:
-  Data_Ingestion:
+  data_integration:
     cmd: python src/data/data_ingestion.py
     deps:
       - src/data/data_ingestion.py
     outs:
-      - data/raw
+      - data/raw/Main_Training
+      - data/raw/Generalization_Test
+      - data/raw/Federated_Simulation

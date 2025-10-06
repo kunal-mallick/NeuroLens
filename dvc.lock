@@ -5,11 +5,34 @@ stages:
     deps:
     - path: src/data/data_ingestion.py
       hash: md5
-      md5: ee49b8681aac16c421d442fc1216278a
-      size: 4978
+      md5: 702bda60c4e959e2a344535566045f6a
+      size: 5560
     outs:
     - path: data/raw
       hash: md5
-      md5: e12221e169c024a9d6ef8e0334059d63.dir
-      size: 56222207922
-      nfiles: 2352
+      md5: e216ff95af5ddb4f0309eaad59f79478.dir
+      size: 42804705202
+      nfiles: 2349
+  data_integration:
+    cmd: python src/data/data_ingestion.py
+    deps:
+    - path: src/data/data_ingestion.py
+      hash: md5
+      md5: a035017fc4156f61b3e821d3facf0e45
+      size: 1828
+    outs:
+    - path: data/raw/Federated_Simulation
+      hash: md5
+      md5: 179458ce83bb6bf96b00d36b981a3086.dir
+      size: 15757922246
+      nfiles: 2
+    - path: data/raw/Generalization_Test
+      hash: md5
+      md5: 0d5f9c6a565d58c94c05899dd6ef1606.dir
+      size: 748584920
+      nfiles: 1
+    - path: data/raw/Main_Training
+      hash: md5
+      md5: 2f0c2aca62af5d5e23dd215a6247e4e7.dir
+      size: 17663344900
+      nfiles: 2

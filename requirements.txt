@@ -5,6 +5,9 @@
 dvc
 numpy
 pandas
+gdown
+nibabel
+SimpleITK
 scikit-learn
 tensorflow
 matplotlib
