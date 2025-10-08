@@ -23,16 +23,148 @@ stages:
     outs:
     - path: data/raw/Federated_Simulation
       hash: md5
-      md5: 179458ce83bb6bf96b00d36b981a3086.dir
-      size: 15757922246
-      nfiles: 2
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
     - path: data/raw/Generalization_Test
       hash: md5
-      md5: 0d5f9c6a565d58c94c05899dd6ef1606.dir
-      size: 748584920
-      nfiles: 1
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
     - path: data/raw/Main_Training
       hash: md5
-      md5: 2f0c2aca62af5d5e23dd215a6247e4e7.dir
-      size: 17663344900
-      nfiles: 2
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+    - path: C:/Users/NeuroLens/Downloads/Compressed/Federated_Simulation
+      hash: md5
+      md5: 2ba75f6f151d2953813827f9778ec627.dir
+      size: 15785906402
+      nfiles: 7134
+    - path: C:/Users/NeuroLens/Downloads/Compressed/Generalization_Test
+      hash: md5
+      md5: d2570ec57ddb1e153aa3334cf64c0641.dir
+      size: 2112621008
+      nfiles: 15720
+    - path: C:/Users/NeuroLens/Downloads/Compressed/Main_Training
+      hash: md5
+      md5: 63d42f86a65acefa7335c9817500049f.dir
+      size: 34460101775
+      nfiles: 2264
+    - path: src/data/data_ingestion.py
+      hash: md5
+      md5: 4256a773e8752cc60d39660b972356d1
+      size: 1993
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: acb6c131f576fdc7702703d3acec8bf1.dir
+      size: 52358629185
+      nfiles: 25118
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+    - path: data/raw/Main_Training/train
+      hash: md5
+      md5: 4bf8ccdb1ffbf02e955deef6cb7749b2.dir
+      size: 24756450175
+      nfiles: 1764
+    - path: data/raw/Main_Training/val
+      hash: md5
+      md5: 084b36226efa6c7efa1a8c4571a781b2.dir
+      size: 9703651600
+      nfiles: 500
+    - path: src/data/data_preprocessing.py
+      hash: md5
+      md5: c94fa2314e842895d8a22aaa82c3d5e7
+      size: 6715
+    outs:
+    - path: data/processed/Main_Training/train
+      hash: md5
+      md5: 3c874495a2be56fd517db1775ac77493.dir
+      size: 12549447680
+      nfiles: 704
+    - path: data/processed/Main_Training/val
+      hash: md5
+      md5: d0d84a0fd42bb5da817e29a624c678f5.dir
+      size: 4194320000
+      nfiles: 125
+  baseline_train:
+    cmd: python src/models/baseline_model.py
+    deps:
+    - path: data/processed/Main_Training/train
+      hash: md5
+      md5: 3c874495a2be56fd517db1775ac77493.dir
+      size: 12549447680
+      nfiles: 704
+    - path: src/models/baseline_model.py
+      hash: md5
+      md5: 0e8c77afbbc98792d90a97c834aecf30
+      size: 4232
+    outs:
+    - path: models/baseline_3d_unet.h5
+      hash: md5
+      md5: 78c13895ca78d34cfb2081036564625e
+      size: 2158080
+  evaluate:
+    cmd: python src/models/baseline_model_evaluation.py
+    deps:
+    - path: data/processed/Main_Training/train
+      hash: md5
+      md5: 3c874495a2be56fd517db1775ac77493.dir
+      size: 12549447680
+      nfiles: 704
+    - path: models/baseline_3d_unet.h5
+      hash: md5
+      md5: 78c13895ca78d34cfb2081036564625e
+      size: 2158080
+    outs:
+    - path: metrics/evaluation.csv
+      hash: md5
+      md5: bbf1d9f4af99e7e673220bb57604f539
+      size: 8342
+    - path: metrics/evaluation.json
+      hash: md5
+      md5: da498933359169814a9e9f78684846b6
+      size: 174
+  data_augmentation:
+    cmd: python src/features/features_augmentation.py
+    deps:
+    - path: data/processed/Main_Training/train/image
+      hash: md5
+      md5: 7360fd603e6dc2497cf4876050ed7773.dir
+      size: 11811205120
+      nfiles: 352
+    - path: data/processed/Main_Training/train/mark
+      hash: md5
+      md5: 71fe56616a3ab8d9951e9bac2c4844b0.dir
+      size: 738242560
+      nfiles: 352
+    - path: data/processed/Main_Training/val/image
+      hash: md5
+      md5: 74265b35fa83300411d96948458867bb.dir
+      size: 4194320000
+      nfiles: 125
+    - path: src/features/features_augmentation.py
+      hash: md5
+      md5: 3e6650e4eb1c66d199c583ab962630a5
+      size: 4463
+    outs:
+    - path: data/features/Main_Training/train/image_aug
+      hash: md5
+      md5: ee744ce4393f760d484a82ef166a4bfe.dir
+      size: 11315054592
+      nfiles: 352
+    - path: data/features/Main_Training/train/mask_aug
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    - path: data/features/Main_Training/val/image_aug
+      hash: md5
+      md5: 2134861ece4556d69296dfa3c9cf7f90.dir
+      size: 4044174976
+      nfiles: 125

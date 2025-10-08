@@ -1,155 +1,165 @@
 import os
+import time
 import numpy as np
 import SimpleITK as sitk
-import tensorflow as tf
-import zipfile
+from multiprocessing import Pool, cpu_count, Manager, get_context
+from pathlib import Path
 import logging
 
-# ---------------- Logging ----------------
-LOG_DIR = "log"
-os.makedirs(LOG_DIR, exist_ok=True)
-log_filepath = os.path.join(LOG_DIR, "preprocessing.log")
+# ---------------- LOGGING ----------------
+log_dir = "log"
+os.makedirs(log_dir, exist_ok=True)
+logging.basicConfig(
+    filename=os.path.join(log_dir, "preprocessing.log"),
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-if logger.hasHandlers():
-    logger.handlers.clear()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-fh = logging.FileHandler(log_filepath)
-fh.setFormatter(formatter)
-logger.addHandler(fh)
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-# ---------------- Parameters ----------------
+# ---------------- CONFIG ----------------
+RAW_BASE = Path("data/raw/Main_Training")
+PROC_BASE = Path("data/processed/Main_Training")
 TARGET_SPACING = (1.0, 1.0, 1.0)
 TARGET_SHAPE = (128, 128, 128)
-RAW_DIR = "data/raw/Main_Training"
-PROCESSED_DIR = "data/processed"
-os.makedirs(PROCESSED_DIR, exist_ok=True)
+MODALITIES = ["t1", "t1ce", "t2", "flair"]
 
+# Use fewer cores than max to prevent memory pressure
+N_PROCESSES = max(1, min(6, cpu_count() - 2))
 
-# ---------------- Helper Functions ----------------
-def unzip_dataset(zip_path, extract_to):
-    logger.info(f"Extracting {zip_path}...")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
-    logger.info(f"Extraction completed: {extract_to}")
+# ---------------- UTILITY FUNCTIONS ----------------
+def load_nifti(path):
+    return sitk.ReadImage(str(path))
 
-
-def resample_image(img, target_spacing=TARGET_SPACING):
-    original_spacing = img.GetSpacing()
-    original_size = img.GetSize()
-    new_size = [
-        int(round(original_size[i] * (original_spacing[i] / target_spacing[i])))
-        for i in range(3)
-    ]
+def resample_image(image, target_spacing=TARGET_SPACING, is_mask=False):
+    original_spacing = image.GetSpacing()
+    original_size = image.GetSize()
+    new_size = [int(round(osz * ospc / tspc)) for osz, ospc, tspc in zip(original_size, original_spacing, target_spacing)]
     resampler = sitk.ResampleImageFilter()
     resampler.SetOutputSpacing(target_spacing)
     resampler.SetSize(new_size)
-    resampler.SetInterpolator(sitk.sitkLinear)
-    resampler.SetOutputDirection(img.GetDirection())
-    resampler.SetOutputOrigin(img.GetOrigin())
-    return resampler.Execute(img)
-
-
-def resample_mask(mask, target_spacing=TARGET_SPACING):
-    original_spacing = mask.GetSpacing()
-    original_size = mask.GetSize()
-    new_size = [
-        int(round(original_size[i] * (original_spacing[i] / target_spacing[i])))
-        for i in range(3)
-    ]
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetOutputSpacing(target_spacing)
-    resampler.SetSize(new_size)
-    resampler.SetInterpolator(sitk.sitkNearestNeighbor)
-    resampler.SetOutputDirection(mask.GetDirection())
-    resampler.SetOutputOrigin(mask.GetOrigin())
-    return resampler.Execute(mask)
-
+    resampler.SetInterpolator(sitk.sitkNearestNeighbor if is_mask else sitk.sitkLinear)
+    resampler.SetOutputDirection(image.GetDirection())
+    resampler.SetOutputOrigin(image.GetOrigin())
+    resampler.SetDefaultPixelValue(0)
+    return resampler.Execute(image)
 
 def zscore_normalize(volume):
-    volume = sitk.GetArrayFromImage(volume).astype(np.float32)
-    mean = np.mean(volume)
-    std = np.std(volume)
-    volume = (volume - mean) / (std + 1e-8)
-    return volume
-
+    arr = sitk.GetArrayFromImage(volume).astype(np.float32)
+    mean, std = arr.mean(), arr.std()
+    if std > 0:
+        arr = (arr - mean) / std
+    return arr
 
 def crop_or_pad(volume, target_shape=TARGET_SHAPE):
-    shape = volume.shape
-    pad_width = [(0, max(0, target_shape[i] - shape[i])) for i in range(3)]
-    volume = np.pad(volume, pad_width, mode='constant', constant_values=0)
-    crop_slices = tuple(slice(0, target_shape[i]) for i in range(3))
-    volume = volume[crop_slices]
-    return volume
+    current_shape = np.array(volume.shape)
+    pad = np.maximum((np.array(target_shape) - current_shape) // 2, 0)
+    crop = np.maximum((current_shape - np.array(target_shape)) // 2, 0)
+    volume = np.pad(volume, [(p, p) for p in pad], mode="constant")
+    slices = tuple(slice(c, c + ts) for c, ts in zip(crop, target_shape))
+    return volume[slices]
 
+# ---------------- PROCESS SINGLE PATIENT ----------------
+def preprocess_patient(patient_dir, out_image_dir, out_mask_dir=None, require_seg=True, stats_dict=None):
+    start_time = time.time()
+    patient_name = os.path.basename(patient_dir)
+    status = "skipped"
+    has_seg = False
 
-def process_case(image_path, mask_path, save_dir):
-    img = sitk.ReadImage(image_path)
-    mask = sitk.ReadImage(mask_path)
+    try:
+        img_out = out_image_dir / patient_name
+        if img_out.exists():
+            status = "already_processed"
+            return status
 
-    img = resample_image(img)
-    mask = resample_mask(mask)
+        # Load and process modalities
+        images = []
+        for m in MODALITIES:
+            file = list(Path(patient_dir).glob(f"*{m}*.nii*"))
+            if not file:
+                logging.warning(f"{patient_name}: Missing modality {m}")
+                return "missing_modality"
+            img = load_nifti(file[0])
+            img = resample_image(img)
+            arr = zscore_normalize(img)
+            arr = crop_or_pad(arr)
+            images.append(arr)
 
-    img = zscore_normalize(img)
-    mask = sitk.GetArrayFromImage(mask)
+        image_stack = np.stack(images, axis=-1)
+        os.makedirs(img_out, exist_ok=True)
+        np.save(img_out / "image.npy", image_stack)
 
-    img = crop_or_pad(img)
-    mask = crop_or_pad(mask)
+        # Save mask only if available and required
+        if out_mask_dir:
+            seg_file = list(Path(patient_dir).glob("*seg*.nii*"))
+            if seg_file and os.path.exists(seg_file[0]):
+                mask = load_nifti(seg_file[0])
+                mask = resample_image(mask, is_mask=True)
+                mask_arr = sitk.GetArrayFromImage(mask).astype(np.uint8)
+                mask_arr = crop_or_pad(mask_arr)
+                os.makedirs(out_mask_dir / patient_name, exist_ok=True)
+                np.save(out_mask_dir / patient_name / "mask.npy", mask_arr)
+                has_seg = True
+            elif require_seg:
+                logging.warning(f"{patient_name}: Missing segmentation.")
+                return "missing_seg"
 
-    base_name = os.path.splitext(os.path.basename(image_path))[0]
-    np.save(os.path.join(save_dir, f"{base_name}_image.npy"), img)
-    np.save(os.path.join(save_dir, f"{base_name}_mask.npy"), mask)
-    logger.info(f"Processed {base_name}")
+        duration = time.time() - start_time
+        status = "processed"
+        logging.info(f"{patient_name}: {status}, seg={has_seg}, time={duration:.2f}s")
 
+        if stats_dict is not None:
+            stats_dict[patient_name] = {"status": status, "has_seg": has_seg, "time_s": round(duration, 2)}
 
-def process_dataset(raw_dir=RAW_DIR, processed_dir=PROCESSED_DIR):
-    os.makedirs(processed_dir, exist_ok=True)
-    # Extract all zip files
-    for file in os.listdir(raw_dir):
-        if file.endswith(".zip"):
-            unzip_dataset(os.path.join(raw_dir, file), raw_dir)
+        return status
 
-    # Process all image-mask pairs
-    for root, _, files in os.walk(raw_dir):
-        images = sorted([f for f in files if "t1" in f.lower() or "flair" in f.lower()])
-        masks = sorted([f for f in files if "seg" in f.lower()])
+    except Exception as e:
+        logging.error(f"{patient_name}: Error {e}")
+        if stats_dict is not None:
+            stats_dict[patient_name] = {"status": "error", "has_seg": False, "time_s": 0}
+        return "error"
 
-        for img_file, mask_file in zip(images, masks):
-            image_path = os.path.join(root, img_file)
-            mask_path = os.path.join(root, mask_file)
-            process_case(image_path, mask_path, processed_dir)
+# ---------------- PROCESS SPLIT ----------------
+def process_split(split, require_seg=True):
+    input_dir = RAW_BASE / split
+    output_image_dir = PROC_BASE / split / "image"
+    os.makedirs(output_image_dir, exist_ok=True)
 
+    output_mask_dir = None
+    if require_seg:
+        output_mask_dir = PROC_BASE / split / "mark"
+        os.makedirs(output_mask_dir, exist_ok=True)
 
-# ---------------- TensorFlow Dataset ----------------
-def build_tf_dataset(processed_dir=PROCESSED_DIR, batch_size=2, shuffle=True):
-    image_files = sorted([os.path.join(processed_dir, f) for f in os.listdir(processed_dir) if "image" in f])
-    mask_files = sorted([os.path.join(processed_dir, f) for f in os.listdir(processed_dir) if "mask" in f])
+    patient_dirs = [str(p) for p in input_dir.iterdir() if p.is_dir()]
+    logging.info(f"{split}: Found {len(patient_dirs)} patients")
 
-    def load_npy(image_path, mask_path):
-        image = np.load(image_path.decode())
-        mask = np.load(mask_path.decode())
-        return image[..., np.newaxis], mask[..., np.newaxis]
+    manager = Manager()
+    stats_dict = manager.dict()
 
-    dataset = tf.data.Dataset.from_tensor_slices((image_files, mask_files))
-    dataset = dataset.map(lambda x, y: tf.py_function(load_npy, [x, y], [tf.float32, tf.float32]),
-                            num_parallel_calls=tf.data.AUTOTUNE)
-    if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(image_files))
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
-    return dataset
+    start_total = time.time()
+    ctx = get_context("spawn")  # Safer multiprocessing on Windows Server
+    with ctx.Pool(processes=N_PROCESSES) as pool:
+        for p in patient_dirs:
+            pool.apply_async(preprocess_patient, args=(p, output_image_dir, output_mask_dir, require_seg, stats_dict))
+        pool.close()
+        pool.join()
+    end_total = time.time()
 
+    processed = sum(1 for v in stats_dict.values() if v["status"]=="processed")
+    skipped = sum(1 for v in stats_dict.values() if v["status"]=="already_processed")
+    errors = sum(1 for v in stats_dict.values() if v["status"]=="error")
+    no_seg = sum(1 for v in stats_dict.values() if v["has_seg"]==False and v["status"]=="processed")
 
-# ---------------- Main ----------------
-def main():
-    logger.info("Starting preprocessing...")
-    process_dataset()
-    logger.info("Preprocessing completed successfully!")
+    logging.info(f"===== {split.upper()} Summary =====")
+    logging.info(f"Processed: {processed}, Skipped: {skipped}, No seg: {no_seg}, Errors: {errors}")
+    logging.info(f"{split} total time: {(end_total - start_total)/60:.2f} min")
+    logging.info("Per-patient runtimes:")
+    for name, s in stats_dict.items():
+        logging.info(f"{name}: {s}")
 
-
+# ---------------- MAIN ----------------
 if __name__ == "__main__":
-    main()
+    total_start = time.time()
+    logging.info("===== Preprocessing Started (Azure VM Optimized) =====")
+    process_split("train", require_seg=True)
+    process_split("val", require_seg=False)  # Skip masks for val
+    total_end = time.time()
+    logging.info(f"===== All Done in {(total_end - total_start)/60:.2f} min =====")
