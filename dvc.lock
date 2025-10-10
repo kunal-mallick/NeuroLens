@@ -150,21 +150,63 @@ stages:
       nfiles: 125
     - path: src/features/features_augmentation.py
       hash: md5
-      md5: 3e6650e4eb1c66d199c583ab962630a5
-      size: 4463
+      md5: 2311617ae57ca8f432c5ddff8ea0ce49
+      size: 3306
     outs:
     - path: data/features/Main_Training/train/image_aug
       hash: md5
-      md5: ee744ce4393f760d484a82ef166a4bfe.dir
-      size: 11315054592
+      md5: a332310917309d757b5d2cab1e39990d.dir
+      size: 11356035072
       nfiles: 352
     - path: data/features/Main_Training/train/mask_aug
+      hash: md5
+      md5: 0302c57d7f29bf385c93410c2b4f0789.dir
+      size: 701070080
+      nfiles: 352
+  build_clinical_model:
+    cmd: python src/models/build_clinical_model.py
+    deps:
+    - path: src/models/build_clinical_model.py
+      hash: md5
+      md5: b0ca95e307083df3b4f07142b0457c23
+      size: 2207
+    outs:
+    - path: models/clinical_unet_2d.h5
+      hash: md5
+      md5: 3493c73b7e7048cb3bc795dacf5866c4
+      size: 7879304
+  build_research_model:
+    cmd: python src/models/build_research_model.py
+    deps:
+    - path: src/models/build_research_model.py
+      hash: md5
+      md5: 0ef8b06af18ba4b71b4c04f6914dfb58
+      size: 2398
+    outs:
+    - path: models/research_attention_unet_3d.h5
+      hash: md5
+      md5: e8c1f8d2b0dde2a01b1efd52a805d4b7
+      size: 90579968
+  visualize_preprocessing:
+    cmd: python src/visualization/visualize_preprocessing.py
+    deps:
+    - path: data/processed/Main_Training/train/image
+      hash: md5
+      md5: 7360fd603e6dc2497cf4876050ed7773.dir
+      size: 11811205120
+      nfiles: 352
+    - path: data/raw/Main_Training/Train
+      hash: md5
+      md5: 4bf8ccdb1ffbf02e955deef6cb7749b2.dir
+      size: 24756450175
+      nfiles: 1764
+    - path: src/visualization/visualize_preprocessing.py
+      hash: md5
+      md5: d72cdfd0f2106339a8bcf7001aa32a1d
+      size: 2621
+    outs:
+    - path: reports/figures/processed
       hash: md5
       md5: d751713988987e9331980363e24189ce.dir
       size: 0
       nfiles: 0
-    - path: data/features/Main_Training/val/image_aug
-      hash: md5
-      md5: 2134861ece4556d69296dfa3c9cf7f90.dir
-      size: 4044174976
-      nfiles: 125

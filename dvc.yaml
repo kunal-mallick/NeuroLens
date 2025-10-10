@@ -8,6 +8,7 @@ stages:
       - C:/Users/NeuroLens/Downloads/Compressed/Federated_Simulation
     outs:
       - data/raw
+
   data_preprocessing:
     cmd: python src/data/data_preprocessing.py
     deps:
@@ -17,6 +18,7 @@ stages:
     outs:
       - data/processed/Main_Training/train
       - data/processed/Main_Training/val
+
   baseline_train:
     cmd: python src/models/baseline_model.py
     deps:
@@ -24,6 +26,7 @@ stages:
       - data/processed/Main_Training/train
     outs:
       - models/baseline_3d_unet.h5
+
   evaluate:
     cmd: python src/models/baseline_model_evaluation.py
     deps:
@@ -32,6 +35,7 @@ stages:
     outs:
       - metrics/evaluation.json
       - metrics/evaluation.csv
+
   data_augmentation:
     cmd: python src/features/features_augmentation.py
     deps:
@@ -42,4 +46,26 @@ stages:
     outs:
       - data/features/Main_Training/train/image_aug
       - data/features/Main_Training/train/mask_aug
-      - data/features/Main_Training/val/image_aug
+
+  build_clinical_model:
+    cmd: python src/models/build_clinical_model.py
+    deps:
+      - src/models/build_clinical_model.py
+    outs:
+      - models/clinical_unet_2d.h5
+
+  build_research_model:
+    cmd: python src/models/build_research_model.py
+    outs:
+      - models/research_attention_unet_3d.h5
+    deps:
+      - src/models/build_research_model.py
+
+  visualize_preprocessing:
+    cmd: python src/visualization/visualize_preprocessing.py
+    deps:
+      - src/visualization/visualize_preprocessing.py
+      - data/raw/Main_Training/Train
+      - data/processed/Main_Training/train/image
+    outs:
+      - reports/figures/processed
