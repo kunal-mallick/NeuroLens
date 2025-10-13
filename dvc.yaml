@@ -15,7 +15,7 @@ stages:
     outs:
       - data/processed
 
-  visualize:
+  visualize_processed_vs_raw:
     cmd: python src/visualization/compare_processed_vs_raw.py
     deps:
       - src/visualization/compare_processed_vs_raw.py
@@ -34,6 +34,16 @@ stages:
     outs:
       - data/features/train
       - data/features/val
+
+  visualize_processed_vs_features:
+    cmd: python src/visualization/compare_processed_vs_features.py
+    deps:
+      - src/visualization/compare_processed_vs_features.py
+      - data/processed/train
+      - data/features/train
+    outs:
+      - reports/figures/processed_vs_features
+    always_changed: true
 
   # baseline_train:
   #   cmd: python src/models/baseline_model.py
