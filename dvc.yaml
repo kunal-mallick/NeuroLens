@@ -13,14 +13,14 @@ stages:
       - src/data/data_preprocessing.py
       - data/raw
     outs:
-      - data/Processed
+      - data/processed
 
   visualize:
     cmd: python src/visualization/compare_processed_vs_raw.py
     deps:
       - src/visualization/compare_processed_vs_raw.py
       - data/raw/train
-      - data/Processed/train
+      - data/processed/train
     outs:
       - reports/figures/processed_vs_raw
 
