@@ -1,64 +1,78 @@
 import os
 import shutil
+import random
 import logging
+from pathlib import Path
 
-# ------------------- Logging Configuration -------------------
-LOG_DIR = "log"
-os.makedirs(LOG_DIR, exist_ok=True)
-log_filepath = os.path.join(LOG_DIR, "data_ingestion.log")
+# ====== CONFIG ======
+DATASET_DIR = Path(r"C:\Users\evilk\Downloads\Compressed\Main_Training\train")  # Change to your dataset path
+OUTPUT_DIR = Path("data/raw")
+VAL_SPLIT = 0.2  # 20% validation
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+log_file = LOG_DIR / "data_ingestion.log"
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if logger.hasHandlers():
-    logger.handlers.clear()
-
-formatter = logging.Formatter(
-    '%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+# ====== SETUP LOGGING ======
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
+log = logging.getLogger("ingestion")
 
-fh = logging.FileHandler(log_filepath, encoding="utf-8")
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+# ====== CREATE OUTPUT DIRS ======
+train_dir = OUTPUT_DIR / "train"
+val_dir = OUTPUT_DIR / "val"
+train_dir.mkdir(parents=True, exist_ok=True)
+val_dir.mkdir(parents=True, exist_ok=True)
 
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+# ====== UTILS ======
+def get_patient_id(name: str) -> str:
+    """Extract patient number from folder/file name."""
+    return name.replace("BraTS20_Training_", "").replace("BraTS2021_", "")
 
-# ------------------- Main Script -------------------
-def copy_local_folders():
-    source_dir = r"C:\Users\NeuroLens\Downloads\Compressed"  # Windows absolute path
-    dest_dir = "data/raw"
-    os.makedirs(dest_dir, exist_ok=True)
-
-    folders = ["Main_Training", "Generalization_Test", "Federated_Simulation"]
-
-    for folder in folders:
-        src_path = os.path.join(source_dir, folder)
-        dest_path = os.path.join(dest_dir, folder)
-
+def rename_and_copy(patient_list, dest_dir):
+    """Rename patients and copy to destination directory."""
+    for patient in patient_list:
         try:
-            if not os.path.exists(src_path):
-                logger.warning(f"Folder '{folder}' not found in {source_dir}")
-                continue
+            new_name = f"patient_{get_patient_id(patient.name)}"
+            dest_path = dest_dir / new_name
 
-            # Remove existing folder if exists
-            if os.path.exists(dest_path):
-                shutil.rmtree(dest_path)
-                logger.info(f"Removed existing folder: {dest_path}")
+            if patient.is_dir():
+                shutil.copytree(patient, dest_path, dirs_exist_ok=True)
+            else:
+                shutil.copy2(patient, dest_path)
 
-            # Copy the entire folder
-            shutil.copytree(src_path, dest_path)
-            logger.info(f"Copied folder '{folder}' to {dest_path}")
-
+            log.info(f"{patient.name} → {new_name}")
         except Exception as e:
-            logger.error(f"Failed to copy folder '{folder}': {e}")
+            log.error(f"Failed to copy {patient.name}: {e}")
 
+# ====== MAIN PROCESS ======
 def main():
-    logger.info("Starting local data ingestion from C:\\Users\\NeuroLens\\Downloads\\Compressed...")
-    copy_local_folders()
-    logger.info("✅ Data ingestion completed successfully!")
+    log.info("📂 Collecting dataset...")
+    patients = [p for p in DATASET_DIR.iterdir() if p.is_dir() or p.suffix in [".nii", ".nii.gz"]]
+
+    if not patients:
+        log.warning("No patient files/folders found in the dataset directory!")
+        return
+
+    random.shuffle(patients)
+    split_idx = int(len(patients) * (1 - VAL_SPLIT))
+    train_patients = patients[:split_idx]
+    val_patients = patients[split_idx:]
+
+    log.info(f"Total patients: {len(patients)} | Train: {len(train_patients)} | Val: {len(val_patients)}")
+    log.info("📂 Processing train set...")
+    rename_and_copy(train_patients, train_dir)
+
+    log.info("📂 Processing val set...")
+    rename_and_copy(val_patients, val_dir)
+
+    log.info("🎉 Dataset prepared successfully in 'data/raw/'")
 
 if __name__ == "__main__":
     main()

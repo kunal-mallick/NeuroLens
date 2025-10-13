@@ -1,0 +1,267 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 🔧 Fix over-cropping & visualise slices\n",
+    "\n",
+    "1. Run all cells (`Cell ▶ Run All`).  \n",
+    "2. Play with the sliders to see the difference between original and saved volumes.  \n",
+    "3. When you are happy, execute the last cell – it overwrites the old `.npy` files."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ---------- CONFIGURATION ----------\n",
+    "patient_name = \"Brats20_Training_001\"          # <-- change me\n",
+    "raw_dir      = Path(\"data/raw/Main_Training/train\") / patient_name\n",
+    "proc_dir     = Path(\"data/processed/Main_Training/train/image\") / patient_name\n",
+    "modalities   = [\"flair\", \"t1\", \"t1ce\", \"t2\"]\n",
+    "target_shape = (128, 128, 128)                 # same as in your script\n",
+    "target_sp    = (1.0, 1.0, 1.0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import SimpleITK as sitk\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "from ipywidgets import interact, IntSlider\n",
+    "from pathlib import Path\n",
+    "\n",
+    "%matplotlib widget"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ---------- LOAD ORIGINAL IMAGES ----------\n",
+    "def load_nifti(path):\n",
+    "    return sitk.ReadImage(str(path))\n",
+    "\n",
+    "orig_imgs = {}   # modality -> SimpleITK image\n",
+    "for m in modalities:\n",
+    "    f = list(raw_dir.glob(f\"*{m}*.nii*\"))[0]\n",
+    "    orig_imgs[m] = load_nifti(f)\n",
+    "\n",
+    "# optional segmentation\n",
+    "seg_file = list(raw_dir.glob(\"*seg*.nii*\"))\n",
+    "orig_seg = load_nifti(seg_file[0]) if seg_file else None\n",
+    "\n",
+    "print(\"Original sizes:\")\n",
+    "for m, img in orig_imgs.items():\n",
+    "    print(f\"{m:5s}: {img.GetSize()} @ {img.GetSpacing()} mm\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ---------- LOAD PRE-PROCESSED ARRAYS ----------\n",
+    "saved_img = np.load(proc_dir / \"image.npy\")   # (H,W,C,4)\n",
+    "saved_msk = np.load(proc_dir / \"mask.npy\") if (proc_dir / \"mask.npy\").exists() else None\n",
+    "print(\"Saved image shape:\", saved_img.shape)\n",
+    "print(\"Saved mask  shape:\", saved_msk.shape if saved_msk is not None else \"None\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 🔍 Visual checker – original vs saved"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def show_slice(axis, idx):\n",
+    "    \"\"\"axis: 0=sagittal, 1=coronal, 2=axial\"\"\"\n",
+    "    fig, ax = plt.subplots(1, 2, figsize=(9,4))\n",
+    "    # pick flair for visual\n",
+    "    orig_arr = sitk.GetArrayFromImage(orig_imgs[\"flair\"])\n",
+    "    sav_arr  = saved_img[..., 0]   # flair channel\n",
+    "    \n",
+    "    if axis == 0:\n",
+    "        o = orig_arr[idx, :, :]\n",
+    "        s = sav_arr[idx, :, :]\n",
+    "    elif axis == 1:\n",
+    "        o = orig_arr[:, idx, :]\n",
+    "        s = sav_arr[:, idx, :]\n",
+    "    else:\n",
+    "        o = orig_arr[:, :, idx]\n",
+    "        s = sav_arr[:, :, idx]\n",
+    "\n",
+    "    ax[0].imshow(o, cmap=\"gray\")\n",
+    "    ax[0].set_title(f\"Original  axis={axis}  idx={idx}\")\n",
+    "    ax[1].imshow(s, cmap=\"gray\")\n",
+    "    ax[1].set_title(f\"Saved     axis={axis}  idx={idx}\")\n",
+    "    plt.tight_layout()\n",
+    "\n",
+    "interact(show_slice,\n",
+    "         axis=IntSlider(value=2, min=0, max=2, description=\"axis\"),\n",
+    "         idx=IntSlider(value=70, min=0, max=127, description=\"slice\"))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## ✏️ Re-do crop/pad with *less* aggression\n",
+    "\n",
+    "We simply **centre-crop** only if the volume is **larger** than target, otherwise we **zero-pad** symmetrically.  \n",
+    "You can change `TARGET_SHAPE` below to keep more context."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "TARGET_SHAPE = (144, 144, 144)   # try bigger if you want less cropping\n",
+    "\n",
+    "def crop_or_pad_nicely(arr, target_shape):\n",
+    "    \"\"\"centre crop or pad, returns new array\"\"\"\n",
+    "    from skimage.transform import resize  # pip install scikit-image\n",
+    "    # first make sure we have exactly the target shape\n",
+    "    resize_factor = np.array(target_shape) / np.array(arr.shape)\n",
+    "    if not np.allclose(resize_factor, 1.0):\n",
+    "        arr = resize(arr, target_shape, mode=\"constant\", anti_aliasing=False)\n",
+    "    return arr\n",
+    "\n",
+    "# re-process only one modality to see the difference\n",
+    "test_mod = \"flair\"\n",
+    "orig_arr = sitk.GetArrayFromImage(orig_imgs[test_mod])\n",
+    "fixed    = crop_or_pad_nicely(orig_arr, TARGET_SHAPE)\n",
+    "print(f\"Original {test_mod} shape: {orig_arr.shape}\")\n",
+    "print(f\"Fixed    {test_mod} shape: {fixed.shape}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 👀 Compare again"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def compare_fixed(axis, idx):\n",
+    "    fig, ax = plt.subplots(1, 3, figsize=(12,4))\n",
+    "    o = orig_arr if axis==2 else orig_arr.transpose((1,0,2) if axis==1 else (2,1,0))\n",
+    "    s = saved_img[..., 0]\n",
+    "    f = fixed\n",
+    "    if axis != 2:\n",
+    "        s = s.transpose((1,0,2) if axis==1 else (2,1,0))\n",
+    "        f = f.transpose((1,0,2) if axis==1 else (2,1,0))\n",
+    "    ax[0].imshow(o[idx], cmap=\"gray\"); ax[0].set_title(\"Original\")\n",
+    "    ax[1].imshow(s[idx], cmap=\"gray\"); ax[1].set_title(\"Old saved (over-cropped)\")\n",
+    "    ax[2].imshow(f[idx], cmap=\"gray\"); ax[2].set_title(\"New fixed\")\n",
+    "    plt.tight_layout()\n",
+    "\n",
+    "interact(compare_fixed,\n",
+    "         axis=IntSlider(2, 0, 2),\n",
+    "         idx=IntSlider(70, 0, TARGET_SHAPE[2]-1))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 💾 Re-save **all** modalities + mask with the new logic"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from tqdm import tqdm\n",
+    "\n",
+    "def resample_sitk(img, target_spacing=(1,1,1), is_mask=False):\n",
+    "    \"\"\"same as in your script\"\"\"\n",
+    "    orig_sp = img.GetSpacing()\n",
+    "    orig_sz = img.GetSize()\n",
+    "    new_sz  = [int(round(osz*osp/tsp)) for osz,osp,tsp in zip(orig_sz, orig_sp, target_spacing)]\n",
+    "    resampler = sitk.ResampleImageFilter()\n",
+    "    resampler.SetOutputSpacing(target_spacing)\n",
+    "    resampler.SetSize(new_sz)\n",
+    "    resampler.SetInterpolator(sitk.sitkNearestNeighbor if is_mask else sitk.sitkLinear)\n",
+    "    resampler.SetOutputDirection(img.GetDirection())\n",
+    "    resampler.SetOutputOrigin(img.GetOrigin())\n",
+    "    resampler.SetDefaultPixelValue(0)\n",
+    "    return resampler.Execute(img)\n",
+    "\n",
+    "# re-process everything\n",
+    "new_images = []\n",
+    "for m in modalities:\n",
+    "    img = resample_sitk(orig_imgs[m])\n",
+    "    arr = sitk.GetArrayFromImage(img).astype(np.float32)\n",
+    "    # z-score inside brain region (optional)\n",
+    "    brain_mask = arr > arr.mean() + 2*arr.std()\n",
+    "    arr -= arr[brain_mask].mean()\n",
+    "    arr /= arr[brain_mask].std()\n",
+    "    arr = crop_or_pad_nicely(arr, TARGET_SHAPE)\n",
+    "    new_images.append(arr)\n",
+    "\n",
+    "new_stack = np.stack(new_images, axis=-1)\n",
+    "\n",
+    "# mask\n",
+    "if orig_seg:\n",
+    "    msk = resample_sitk(orig_seg, is_mask=True)\n",
+    "    msk_arr = sitk.GetArrayFromImage(msk).astype(np.uint8)\n",
+    "    msk_arr = crop_or_pad_nicely(msk_arr, TARGET_SHAPE)\n",
+    "\n",
+    "# save\n",
+    "np.save(proc_dir / \"image.npy\", new_stack)\n",
+    "if orig_seg:\n",
+    "    np.save(proc_dir / \"mask.npy\", msk_arr)\n",
+    "\n",
+    "print(\"✅ Saved corrected arrays with shape\", new_stack.shape)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.12"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}

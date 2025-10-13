@@ -1,14 +1,23 @@
-# local package
+# Local package
 -e .
 
-# external requirements
-dvc
-numpy
-pandas
-gdown
-nibabel
-SimpleITK
-scikit-learn
-tensorflow
-matplotlib
-seaborn
+# Core libraries
+numpy==1.26.4
+pandas==2.1.1
+tqdm==4.65.0
+seaborn==0.12.2
+matplotlib==3.7.1
+
+# Image and medical imaging
+SimpleITK==2.2.1
+nibabel==5.0.0
+scikit-image==0.21.0
+
+# ML / AI
+scikit-learn==1.2.2
+tensorflow==2.17.0
+torch==2.1.0
+torchaudio==2.1.0
+
+# Data management
+dvc==2.34.1
