@@ -1,108 +1,100 @@
 import os
-from pathlib import Path
-import numpy as np
-import tensorflow as tf
-import random
+import torch
+import torchvision.transforms as transforms
 import logging
+import random
+import warnings
 
-# ---------- config ----------
-RAW_ROOT  = Path("data/processed/Main_Training/train")
-IMAGE_DIR = RAW_ROOT / "image"
-MASK_DIR  = RAW_ROOT / "mark"
-OUT_ROOT  = Path("data/features/Main_Training/train")
-OUT_IM    = OUT_ROOT / "image_aug"
-OUT_MK    = OUT_ROOT / "mask_aug"
+# Ignore all warnings
+warnings.filterwarnings("ignore")
 
-OUT_IM.mkdir(parents=True, exist_ok=True)
-OUT_MK.mkdir(parents=True, exist_ok=True)
-
-
-# ------------------- Logging Configuration -------------------
-LOG_DIR = "log"
-os.makedirs(LOG_DIR, exist_ok=True)
-log_filepath = os.path.join(LOG_DIR, "augmentation.log")
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if logger.hasHandlers():
-    logger.handlers.clear()
-
-formatter = logging.Formatter(
-    '%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+# Setup logging
+log_dir = "log"
+os.makedirs(log_dir, exist_ok=True)
+logging.basicConfig(
+    filename=os.path.join(log_dir, "augmentation.log"),
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-fh = logging.FileHandler(log_filepath, encoding="utf-8")
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+def load_data(path):
+    """Load .pt files from a directory."""
+    files = [f for f in os.listdir(path) if f.endswith(".pt")]
+    data_list = []
+    for f in files:
+        file_path = os.path.join(path, f)
+        tensor = torch.load(file_path, weights_only=True)  # avoid FutureWarning
+        data_list.append((tensor, f))
+    logging.info(f"Loaded {len(data_list)} files from {path}")
+    return data_list
 
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+def augment_tensor(tensor):
+    """
+    Apply random flip, 0 or 180-degree rotation, and brightness.
+    Works for 2D (H, W), 3D (C, H, W), or 4D (N, C, H, W) tensors.
+    Does NOT stack 4D tensors; returns list for batch if needed.
+    """
+    tensor = tensor.float()
 
-# ---------- augmentations ----------
-def rand_flip(im, mk):
-    if random.random() > .5:
-        im = np.flip(im, axis=1); mk = np.flip(mk, axis=1)
-    if random.random() > .5:
-        im = np.flip(im, axis=0); mk = np.flip(mk, axis=0)
-    return im, mk
+    # Handle 2D -> 3D
+    if tensor.ndim == 2:
+        tensor = tensor.unsqueeze(0)  # C, H, W
 
-def rand_rot(im, mk):
-    k = random.randint(0,3)
-    return np.rot90(im, k=k), np.rot90(mk, k=k)
+    # Handle 4D batch tensors
+    if tensor.ndim == 4:
+        N, C, H, W = tensor.shape
+        # Return list of augmented 3D tensors
+        return [augment_tensor(tensor[i]) for i in range(N)]
 
-def rand_zoom(im, mk, z_range=(0.9,1.1)):
-    z = random.uniform(*z_range)
-    h,w = im.shape[:2]
-    nh,nw = int(h*z), int(w*z)
-    im_r = tf.image.resize(im, (nh,nw)).numpy()
-    mk_r = tf.image.resize(mk.astype(float), (nh,nw), method='nearest').numpy()
-    sh,sw = max(0,(nh-h)//2), max(0,(nw-w)//2)
-    im_c = im_r[sh:sh+h, sw:sw+w]
-    mk_c = mk_r[sh:sh+h, sw:sw+w]
-    return im_c, mk_c.astype(mk.dtype)
+    # 3D tensor: C, H, W
+    C, H, W = tensor.shape
 
-def rand_bright(im, mk, delta=.1):
-    return tf.image.random_brightness(im, delta).numpy(), mk
+    # Random horizontal flip
+    if random.random() > 0.5:
+        tensor = torch.flip(tensor, dims=[2])
+    # Random vertical flip
+    if random.random() > 0.5:
+        tensor = torch.flip(tensor, dims=[1])
+    # Random rotation (0 or 180 degrees)
+    if random.random() > 0.5:
+        tensor = torch.rot90(tensor, k=2, dims=[1, 2])
+    # Random brightness
+    brightness_factor = random.uniform(0.7, 1.3)
+    tensor = tensor * brightness_factor
+    tensor = torch.clamp(tensor, 0, 1)
 
-def augment(im, mk):
-    im, mk = rand_flip(im, mk)
-    im, mk = rand_rot(im, mk)
-    im, mk = rand_zoom(im, mk)
-    im, mk = rand_bright(im, mk)
-    return im, mk
+    return tensor
 
-# ---------- single patient ----------
-def process_one(patient: str):
-    im_path = IMAGE_DIR / patient / "image.npy"
-    mk_path = MASK_DIR  / patient / "mask.npy"
-    if not (im_path.exists() and mk_path.exists()):
-        logging.warning("Skipping %s – missing image or mask", patient)
-        return
 
-    image = np.load(im_path)
-    mask  = np.load(mk_path)
 
-    image_aug, mask_aug = augment(image, mask)
+def save_data(data_list, save_path):
+    """Save list of augmented tensors to .pt files."""
+    os.makedirs(save_path, exist_ok=True)
+    for tensor, filename in data_list:
+        save_file = os.path.join(save_path, filename)
+        torch.save(tensor, save_file)
+    logging.info(f"Saved {len(data_list)} augmented files to {save_path}")
 
-    np.save(OUT_IM / f"{patient}_aug.npy", image_aug)
-    np.save(OUT_MK / f"{patient}_aug.npy", mask_aug)
-    logging.info("Augmented  %s  →  %s_aug.npy", patient, patient)
+def augment_and_save(input_path, output_path):
+    data_list = load_data(input_path)
+    os.makedirs(output_path, exist_ok=True)
+    for tensor, fname in data_list:
+        augmented = augment_tensor(tensor)
+        # If 4D tensor returned a list, save each separately with suffix
+        if isinstance(augmented, list):
+            for idx, t in enumerate(augmented):
+                save_file = os.path.join(output_path, f"{fname[:-3]}_aug{idx}.pt")
+                torch.save(t, save_file)
+        else:
+            save_file = os.path.join(output_path, fname)
+            torch.save(augmented, save_file)
 
-# ---------- main ----------
+
 def main():
-    patients_img = {p.name for p in IMAGE_DIR.iterdir() if p.is_dir()}
-    patients_mk  = {p.name for p in MASK_DIR.iterdir()  if p.is_dir()}
-    patients = sorted(patients_img & patients_mk)   # only common ones
-    logging.info("Found %d patients with both image and mask", len(patients))
-
-    for p in patients:
-        process_one(p)
-
-    logging.info("Augmentation finished.")
-    print("Augmentation done – logs in log/augmentation.log")
+    logging.info("=== Data Augmentation Started ===")
+    augment_and_save("data/processed/train", "data/features/train")
+    augment_and_save("data/processed/val", "data/features/val")
+    logging.info("=== Data Augmentation Completed ===")
 
 if __name__ == "__main__":
     main()

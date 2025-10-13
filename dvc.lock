@@ -31,7 +31,7 @@ stages:
       md5: 65d90167d5ce95528517af071a7d3a64
       size: 3692
     outs:
-    - path: data/Processed
+    - path: data/processed
       hash: md5
       md5: 765236ac289f978990d1e661616e4b28.dir
       size: 22146348610
@@ -39,7 +39,7 @@ stages:
   visualize:
     cmd: python src/visualization/compare_processed_vs_raw.py
     deps:
-    - path: data/Processed/train
+    - path: data/processed/train
       hash: md5
       md5: 2469926f4e3d4c480da0b1b9da420252.dir
       size: 17679329460
@@ -56,6 +56,34 @@ stages:
     outs:
     - path: reports/figures/processed_vs_raw
       hash: md5
-      md5: 477ca6d4d08e05757fbcb8894346d900.dir
-      size: 644348
+      md5: ecac21494a8bd17909147389f545a242.dir
+      size: 405273
       nfiles: 1
+  augment_features:
+    cmd: python src/features/features_augmentation.py
+    deps:
+    - path: data/processed/train
+      hash: md5
+      md5: 2469926f4e3d4c480da0b1b9da420252.dir
+      size: 17679329460
+      nfiles: 281
+    - path: data/processed/val
+      hash: md5
+      md5: 541836e6b768051ab6643da7eb23c04e.dir
+      size: 4467019150
+      nfiles: 71
+    - path: src/features/features_augmentation.py
+      hash: md5
+      md5: 008f3fbd3b1a3ae29b10e1fc1ed6fbe1
+      size: 3278
+    outs:
+    - path: data/features/train
+      hash: md5
+      md5: 1d27fd7ecd7bf9414d55310f932edb32.dir
+      size: 17734506410
+      nfiles: 44960
+    - path: data/features/val
+      hash: md5
+      md5: b0e391a077783f5b0bcc809cc85d1f92.dir
+      size: 4480954710
+      nfiles: 11360

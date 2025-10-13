@@ -23,6 +23,17 @@ stages:
       - data/processed/train
     outs:
       - reports/figures/processed_vs_raw
+    always_changed: true # <--- always run this stage
+
+  augment_features:
+    cmd: python src/features/features_augmentation.py
+    deps:
+      - src/features/features_augmentation.py
+      - data/processed/train
+      - data/processed/val
+    outs:
+      - data/features/train
+      - data/features/val
 
   # baseline_train:
   #   cmd: python src/models/baseline_model.py
@@ -40,17 +51,6 @@ stages:
   #   outs:
   #     - metrics/evaluation.json
   #     - metrics/evaluation.csv
-
-  # data_augmentation:
-  #   cmd: python src/features/features_augmentation.py
-  #   deps:
-  #     - src/features/features_augmentation.py
-  #     - data/processed/Main_Training/train/image
-  #     - data/processed/Main_Training/train/mark
-  #     - data/processed/Main_Training/val/image
-  #   outs:
-  #     - data/features/Main_Training/train/image_aug
-  #     - data/features/Main_Training/train/mask_aug
 
   # build_clinical_model:
   #   cmd: python src/models/build_clinical_model.py
