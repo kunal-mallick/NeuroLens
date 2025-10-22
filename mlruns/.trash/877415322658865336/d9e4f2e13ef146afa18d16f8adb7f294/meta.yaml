@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/877415322658865336/d9e4f2e13ef146afa18d16f8adb7f294/artifacts
+deleted_time: 1760538943259
+end_time: 1760455153791
+entry_point_name: ''
+experiment_id: '877415322658865336'
+lifecycle_stage: deleted
+run_id: d9e4f2e13ef146afa18d16f8adb7f294
+run_name: brawny-ox-20
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760455096588
+status: 3
+tags: []
+user_id: evilk

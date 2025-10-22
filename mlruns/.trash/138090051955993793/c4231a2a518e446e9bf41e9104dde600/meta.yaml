@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/138090051955993793/c4231a2a518e446e9bf41e9104dde600/artifacts
+deleted_time: 1760538943262
+end_time: 1760529686311
+entry_point_name: ''
+experiment_id: '138090051955993793'
+lifecycle_stage: deleted
+run_id: c4231a2a518e446e9bf41e9104dde600
+run_name: big-lynx-772
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760529685508
+status: 4
+tags: []
+user_id: evilk

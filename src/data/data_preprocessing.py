@@ -5,14 +5,21 @@ import nibabel as nib
 import numpy as np
 from pathlib import Path
 
+
 # ------------------------------
 # Logging setup
 # ------------------------------
-log_file = "log/data_preprocessing.log"
+
+LOG_DIR = Path("logs")
+log_file = LOG_DIR / "preprocessing.log"
 logging.basicConfig(
-    filename=log_file,
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
 
 # ------------------------------
@@ -24,17 +31,18 @@ INPUT_DIRS = {
 }
 
 OUTPUT_DIRS = {
-    "train": "data/processed/train",
-    "val": "data/processed/val"
+    "train": "data/Processed/train",
+    "val": "data/Processed/val"
 }
 
-TARGET_SHAPE = (160, 192, 128, 4)  # (H, W, D, modalities)
+TARGET_SHAPE = (160, 192, 155, 4)  # Images: H,W,D,4
 MODALITIES = ['flair', 't1', 't1ce', 't2']
 
 # ------------------------------
 # Functions
 # ------------------------------
 def load_mri(file_path):
+    """Load NIfTI file as numpy array."""
     try:
         img = nib.load(file_path)
         data = img.get_fdata()
@@ -45,10 +53,19 @@ def load_mri(file_path):
         return None
 
 def crop_or_pad(data, target_shape):
+    """
+    Crop or pad 3D/4D data to target shape.
+    data: (H,W,D,C) or (H,W,D)
+    target_shape: (H,W,D,C_target)
+    """
+    n_channels = data.shape[3] if data.ndim == 4 else 1
     result = np.zeros(target_shape, dtype=np.float32)
-    for i in range(4):
+
+    for i in range(n_channels):
         vol = data[..., i] if data.ndim == 4 else data
         shape = vol.shape
+
+        # Crop
         slices = []
         for dim, t_dim in zip(shape, target_shape[:3]):
             if dim < t_dim:
@@ -58,6 +75,8 @@ def crop_or_pad(data, target_shape):
                 end = start + t_dim
                 slices.append(slice(start, end))
         cropped = vol[slices[0], slices[1], slices[2]]
+
+        # Pad
         pad_width = []
         for dim, t_dim in zip(cropped.shape, target_shape[:3]):
             total_pad = t_dim - dim
@@ -65,10 +84,13 @@ def crop_or_pad(data, target_shape):
             pad_after = total_pad - pad_before
             pad_width.append((pad_before, pad_after))
         cropped_padded = np.pad(cropped, pad_width, mode='constant')
+
         result[..., i] = cropped_padded
+
     return result
 
 def normalize(data):
+    """Normalize data per volume."""
     mean = data.mean()
     std = data.std()
     if std > 0:
@@ -76,27 +98,40 @@ def normalize(data):
     return data
 
 def process_patient(patient_folder, output_dir):
-    # Collect modality files
-    files = []
-    for mod in MODALITIES:
-        file = list(Path(patient_folder).glob(f"*_{mod}.nii*"))
-        if not file:
-            logging.warning(f"No file found for modality {mod} in {patient_folder}")
-            return
-        files.append(file[0])
-    # Load and stack modalities
+    """Process both images and masks for one patient."""
+    image_folder = Path(patient_folder) / "image"
+    mask_folder = Path(patient_folder) / "mask"
+
+    # ----------------- Images -----------------
     volumes = []
-    for f in files:
-        vol = load_mri(f)
+    for mod in MODALITIES:
+        file = list(image_folder.glob(f"*_{mod}.nii*"))
+        if not file:
+            logging.warning(f"No {mod} file in {image_folder}")
+            return
+        vol = load_mri(file[0])
         if vol is None:
             return
         volumes.append(vol)
-    data = np.stack(volumes, axis=-1)  # shape: (H,W,D,4)
+    data = np.stack(volumes, axis=-1)  # (H,W,D,4)
     data = crop_or_pad(data, TARGET_SHAPE)
     data = normalize(data)
-    out_file = Path(output_dir) / (Path(patient_folder).name + ".pt")
-    torch.save(torch.from_numpy(data), out_file)
-    logging.info(f"Saved preprocessed data to {out_file}")
+
+    # ----------------- Mask -----------------
+    mask_files = list(mask_folder.glob("*.nii*"))
+    if not mask_files:
+        logging.warning(f"No mask file in {mask_folder}")
+        return
+    mask = load_mri(mask_files[0])
+    mask = crop_or_pad(np.expand_dims(mask, -1), TARGET_SHAPE[:3] + (1,))
+    mask = mask.astype(np.uint8)
+
+    # ----------------- Save -----------------
+    out_folder = Path(output_dir) / Path(patient_folder).name
+    os.makedirs(out_folder, exist_ok=True)
+    torch.save(torch.from_numpy(data), out_folder / "image.pt")
+    torch.save(torch.from_numpy(mask), out_folder / "mask.pt")
+    logging.info(f"Saved preprocessed data for {Path(patient_folder).name}")
 
 def process_split(input_dir, output_dir):
     os.makedirs(output_dir, exist_ok=True)

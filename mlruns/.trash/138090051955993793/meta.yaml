@@ -1,0 +1,8 @@
+artifact_location: file:///D:/GitHub/NeuroLens/mlruns/138090051955993793
+creation_time: 1760526235709
+experiment_id: '138090051955993793'
+last_update_time: 1760538943262
+lifecycle_stage: deleted
+name: NeuroLens_Clinical_Model
+tags:
+  mlflow.experimentKind: genai_development

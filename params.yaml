@@ -1,0 +1,104 @@
+# =========================================================
+# 🔹 NeuroLens Project - Unified Parameters File
+# Covers: ingestion, preprocessing, augmentation, training
+# =========================================================
+
+# ------------------------
+# DATA INGESTION
+# ------------------------
+data_ingestion:
+  raw_data_dir: "data/raw"
+  train_split: 0.8
+  val_split: 0.2
+  modalities: ["t1", "t1ce", "t2", "flair"]
+  output_structure:
+    train_dir: "data/raw/train"
+    val_dir: "data/raw/val"
+
+# ------------------------
+# DATA PREPROCESSING
+# ------------------------
+data_preprocessing:
+  input_dir: "data/raw"
+  output_dir: "data/processed"
+  target_shape: [160, 192, 155, 4]
+  normalization: true
+  dtype: "float32"
+  num_workers: 4
+
+# ------------------------
+# FEATURE AUGMENTATION
+# ------------------------
+feature_augmentation:
+  input_dir: "data/processed"
+  output_dir: "data/features"
+  random_flip: true
+  brightness_scale: true
+  rotation_angle: 15
+  noise_std: 0.01
+  num_augmentations: 2
+  log_file: "logs/augmentation.log"
+
+# =========================================================
+# Clinical Model Parameters
+# =========================================================
+
+clinical_model:
+  data:
+    train_dir: "data/features/train"
+    val_dir: "data/features/val"
+    model_dir: "models/clinical_model"
+    lite_model_dir: "models/clinical_model_lite"
+
+  model:
+    input_channels: 4 # number of input MRI modalities
+    num_classes: 1 # segmentation mask channels, usually 1 for binary mask
+    base_channels: 32 # first layer channels for UNet
+    embed_dim: 128 # transformer embedding dim
+    num_heads: 4
+    num_layers: 2 # transformer layers
+    dropout: 0.3
+
+  training:
+    epochs: 2
+    batch_size: 16
+    learning_rate: 0.0001
+    weight_decay: 0.00001
+    early_stopping_patience: 8
+    optimizer: "adam"
+    scheduler: "reduce_on_plateau" # optional learning rate scheduler
+    scheduler_factor: 0.5
+    scheduler_patience: 5
+
+  device:
+    use_amp: true
+    num_workers: 0
+
+  mlflow:
+    experiment_name: "NeuroLens_Clinical_Model"
+    tracking_uri: "mlruns"
+
+# ------------------------
+# VISUALIZATION
+# ------------------------
+visualization:
+  processed_vs_raw_dir: "reports/figures/processed_vs_raw"
+  processed_vs_features_dir: "reports/figures/processed_vs_features"
+  num_slices: 3
+  random_seed: 42
+
+# ------------------------
+# LOGGING
+# ------------------------
+logging:
+  base_dir: "logs"
+  augmentation_log: "logs/augmentation.log"
+  training_log: "logs/clinical_training.log"
+  visualization_log: "logs/visualization.log"
+
+# ------------------------
+# MLFLOW
+# ------------------------
+mlflow:
+  experiment_name: "NeuroLens_Clinical_Model"
+  tracking_uri: "mlruns"

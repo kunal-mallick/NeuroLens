@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/138090051955993793/4ec98922d7874a74910990849e9ddd0e/artifacts
+deleted_time: 1760538943262
+end_time: 1760527616910
+entry_point_name: ''
+experiment_id: '138090051955993793'
+lifecycle_stage: deleted
+run_id: 4ec98922d7874a74910990849e9ddd0e
+run_name: seg_20251015_165629
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760527589641
+status: 4
+tags: []
+user_id: evilk

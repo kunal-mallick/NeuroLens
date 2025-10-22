@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/877415322658865336/c3d5f3ac55f841abb5a9a30b458360ee/artifacts
+deleted_time: 1760538943259
+end_time: 1760454694216
+entry_point_name: ''
+experiment_id: '877415322658865336'
+lifecycle_stage: deleted
+run_id: c3d5f3ac55f841abb5a9a30b458360ee
+run_name: omniscient-sheep-863
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760454674402
+status: 3
+tags: []
+user_id: evilk

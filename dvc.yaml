@@ -15,15 +15,14 @@ stages:
     outs:
       - data/processed
 
-  visualize_processed_vs_raw:
-    cmd: python src/visualization/compare_processed_vs_raw.py
-    deps:
-      - src/visualization/compare_processed_vs_raw.py
-      - data/raw/train
-      - data/processed/train
-    outs:
-      - reports/figures/processed_vs_raw
-    always_changed: true # <--- always run this stage
+  # visualize_processed_vs_raw:
+  #   cmd: python src/visualization/compare_processed_vs_raw.py
+  #   deps:
+  #     - src/visualization/compare_processed_vs_raw.py
+  #     - data/raw/train
+  #     - data/processed/train
+  #   outs:
+  #     - reports/figures/processed_vs_raw # <--- always run this stage
 
   augment_features:
     cmd: python src/features/features_augmentation.py
@@ -35,43 +34,30 @@ stages:
       - data/features/train
       - data/features/val
 
-  visualize_processed_vs_features:
-    cmd: python src/visualization/compare_processed_vs_features.py
+  # visualize_processed_vs_features:
+  #   cmd: python src/visualization/compare_processed_vs_features.py
+  #   deps:
+  #     - src/visualization/compare_processed_vs_features.py
+  #     - data/processed/train
+  #     - data/features/train
+  #   outs:
+  #     - reports/figures/processed_vs_features
+
+  clinical_model:
+    cmd: python src/models/clinical_model.py
     deps:
-      - src/visualization/compare_processed_vs_features.py
-      - data/processed/train
+      - src/models/clinical_model.py
       - data/features/train
+      - data/features/val
     outs:
-      - reports/figures/processed_vs_features
-    always_changed: true
+      - models/clinical/clinical_model.pt
+      - models/clinical/clinical_model_lite.pt
 
-  # baseline_train:
-  #   cmd: python src/models/baseline_model.py
+  # validate_clinical_model:
+  #   cmd: python src/models/validate_clinical_model.py
   #   deps:
-  #     - src/models/baseline_model.py
-  #     - data/processed/Main_Training/train
+  #     - src/models/validate_clinical_model.py
+  #     - models/clinical/clinical_model.pt
+  #     - data/features/val
   #   outs:
-  #     - models/baseline_3d_unet.h5
-
-  # evaluate:
-  #   cmd: python src/models/baseline_model_evaluation.py
-  #   deps:
-  #     - models/baseline_3d_unet.h5
-  #     - data/processed/Main_Training/train
-  #   outs:
-  #     - metrics/evaluation.json
-  #     - metrics/evaluation.csv
-
-  # build_clinical_model:
-  #   cmd: python src/models/build_clinical_model.py
-  #   deps:
-  #     - src/models/build_clinical_model.py
-  #   outs:
-  #     - models/clinical_unet_2d.h5
-
-  # build_research_model:
-  #   cmd: python src/models/build_research_model.py
-  #   outs:
-  #     - models/research_attention_unet_3d.h5
-  #   deps:
-  #     - src/models/build_research_model.py
+  #     - log/validate_clinical_model.log

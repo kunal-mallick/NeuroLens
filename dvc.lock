@@ -10,126 +10,83 @@ stages:
       nfiles: 1764
     - path: src/data/data_ingestion.py
       hash: md5
-      md5: 36766109623d69d3afccb5f9e5385ca5
-      size: 2580
+      md5: f00a142419edc7d1c5486735ebef4c88
+      size: 3046
     outs:
     - path: data/raw
       hash: md5
-      md5: dcba323dfcae6b3bbf0aaf70601d6e46.dir
-      size: 24756450175
-      nfiles: 1764
+      md5: 67702e8b37f15a59a1152e2acf9e8329.dir
+      size: 24684989519
+      nfiles: 1760
   data_preprocessing:
     cmd: python src/data/data_preprocessing.py
     deps:
     - path: data/raw
       hash: md5
-      md5: dcba323dfcae6b3bbf0aaf70601d6e46.dir
-      size: 24756450175
-      nfiles: 1764
+      md5: 67702e8b37f15a59a1152e2acf9e8329.dir
+      size: 24684989519
+      nfiles: 1760
     - path: src/data/data_preprocessing.py
       hash: md5
-      md5: 65d90167d5ce95528517af071a7d3a64
-      size: 3692
+      md5: 04f4eab1727dcb2fe0982fca74c62f86
+      size: 4733
     outs:
     - path: data/processed
       hash: md5
-      md5: 765236ac289f978990d1e661616e4b28.dir
-      size: 22146348610
-      nfiles: 352
-  visualize:
-    cmd: python src/visualization/compare_processed_vs_raw.py
-    deps:
-    - path: data/processed/train
-      hash: md5
-      md5: 2469926f4e3d4c480da0b1b9da420252.dir
-      size: 17679329460
-      nfiles: 281
-    - path: data/raw/train
-      hash: md5
-      md5: 260ad2636c28eba7cc4225f322364c75.dir
-      size: 19666137781
-      nfiles: 1409
-    - path: src/visualization/compare_processed_vs_raw.py
-      hash: md5
-      md5: ab5100cb61b7154cd0dee0873a46bdad
-      size: 2589
-    outs:
-    - path: reports/figures/processed_vs_raw
-      hash: md5
-      md5: ecac21494a8bd17909147389f545a242.dir
-      size: 405273
-      nfiles: 1
+      md5: 59189a6b6bb07a40e83ddd26ac980267.dir
+      size: 28494191264
+      nfiles: 704
   augment_features:
     cmd: python src/features/features_augmentation.py
     deps:
     - path: data/processed/train
       hash: md5
-      md5: 2469926f4e3d4c480da0b1b9da420252.dir
-      size: 17679329460
-      nfiles: 281
+      md5: f7c61be82b7f26b6e5ca6fefafedb8dd.dir
+      size: 22746783367
+      nfiles: 562
     - path: data/processed/val
       hash: md5
-      md5: 541836e6b768051ab6643da7eb23c04e.dir
-      size: 4467019150
-      nfiles: 71
+      md5: 07edb70030261875ef02bd16c8835e37.dir
+      size: 5747407897
+      nfiles: 142
     - path: src/features/features_augmentation.py
       hash: md5
-      md5: 008f3fbd3b1a3ae29b10e1fc1ed6fbe1
-      size: 3278
+      md5: 28c45166c4e0259c809862028cba9fcd
+      size: 3798
     outs:
     - path: data/features/train
       hash: md5
-      md5: 1d27fd7ecd7bf9414d55310f932edb32.dir
-      size: 17734506410
-      nfiles: 44960
+      md5: a4edca9b22d3967e231b19385d1fb4ff.dir
+      size: 22746783367
+      nfiles: 562
     - path: data/features/val
       hash: md5
-      md5: b0e391a077783f5b0bcc809cc85d1f92.dir
-      size: 4480954710
-      nfiles: 11360
-  visualize_processed_vs_raw:
-    cmd: python src/visualization/compare_processed_vs_raw.py
-    deps:
-    - path: data/processed/train
-      hash: md5
-      md5: 2469926f4e3d4c480da0b1b9da420252.dir
-      size: 17679329460
-      nfiles: 281
-    - path: data/raw/train
-      hash: md5
-      md5: 260ad2636c28eba7cc4225f322364c75.dir
-      size: 19666137781
-      nfiles: 1409
-    - path: src/visualization/compare_processed_vs_raw.py
-      hash: md5
-      md5: ab5100cb61b7154cd0dee0873a46bdad
-      size: 2589
-    outs:
-    - path: reports/figures/processed_vs_raw
-      hash: md5
-      md5: 8e3f7704f63a3141f63c79ede61b903d.dir
-      size: 459227
-      nfiles: 1
-  visualize_processed_vs_features:
-    cmd: python src/visualization/compare_processed_vs_features.py
+      md5: 88175d9923df057c782eda384d6304ab.dir
+      size: 5747407897
+      nfiles: 142
+  clinical_model:
+    cmd: python src/models/clinical_model.py
     deps:
     - path: data/features/train
       hash: md5
-      md5: 1d27fd7ecd7bf9414d55310f932edb32.dir
-      size: 17734506410
-      nfiles: 44960
-    - path: data/processed/train
+      md5: a4edca9b22d3967e231b19385d1fb4ff.dir
+      size: 22746783367
+      nfiles: 562
+    - path: data/features/val
       hash: md5
-      md5: 2469926f4e3d4c480da0b1b9da420252.dir
-      size: 17679329460
-      nfiles: 281
-    - path: src/visualization/compare_processed_vs_features.py
+      md5: 88175d9923df057c782eda384d6304ab.dir
+      size: 5747407897
+      nfiles: 142
+    - path: src/models/clinical_model.py
       hash: md5
-      md5: 327e233a9d88fb7a9fdb2d3e95c6c00b
-      size: 2431
+      md5: b3dde4098dff2bc2aa90e172829c622d
+      size: 4929
     outs:
-    - path: reports/figures/processed_vs_features
+    - path: models/clinical/clinical_model.pt
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: c8064ab2a35575ee29ea7e14edac288f
+      size: 115284
+    - path: models/clinical/clinical_model_lite.pt
+      hash: md5
+      md5: 75786f0fb94702d22cf5262651f0a3f8
+      size: 131645

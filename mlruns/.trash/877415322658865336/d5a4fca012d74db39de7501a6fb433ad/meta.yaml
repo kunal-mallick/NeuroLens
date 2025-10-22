@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/877415322658865336/d5a4fca012d74db39de7501a6fb433ad/artifacts
+deleted_time: 1760538943259
+end_time: 1760525169704
+entry_point_name: ''
+experiment_id: '877415322658865336'
+lifecycle_stage: deleted
+run_id: d5a4fca012d74db39de7501a6fb433ad
+run_name: luxuriant-shrimp-377
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760525038386
+status: 3
+tags: []
+user_id: evilk
