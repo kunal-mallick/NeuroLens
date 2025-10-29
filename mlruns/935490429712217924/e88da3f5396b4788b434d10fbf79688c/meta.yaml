@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/935490429712217924/e88da3f5396b4788b434d10fbf79688c/artifacts
+end_time: 1761722934649
+entry_point_name: ''
+experiment_id: '935490429712217924'
+lifecycle_stage: active
+run_id: e88da3f5396b4788b434d10fbf79688c
+run_name: bouncy-crab-491
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761722266462
+status: 4
+tags: []
+user_id: evilk

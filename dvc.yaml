@@ -53,11 +53,10 @@ stages:
       - models/clinical/clinical_model.pt
       - models/clinical/clinical_model_lite.pt
 
-  # validate_clinical_model:
-  #   cmd: python src/models/validate_clinical_model.py
-  #   deps:
-  #     - src/models/validate_clinical_model.py
-  #     - models/clinical/clinical_model.pt
-  #     - data/features/val
-  #   outs:
-  #     - log/validate_clinical_model.log
+  research_training:
+    cmd: python src/models/research_model.py
+    deps:
+      - src/models/research_model.py
+      - data/features/
+    outs:
+      - models/research_model/

@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/935490429712217924/cf09a1982fcb493c8c01f942859a1bc3/artifacts
+end_time: 1761732097815
+entry_point_name: ''
+experiment_id: '935490429712217924'
+lifecycle_stage: active
+run_id: cf09a1982fcb493c8c01f942859a1bc3
+run_name: learned-bear-517
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761727417190
+status: 3
+tags: []
+user_id: evilk

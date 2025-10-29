@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/935490429712217924/0146c86a977d440698ca5fc7b28d4859/artifacts
+end_time: 1761727179642
+entry_point_name: ''
+experiment_id: '935490429712217924'
+lifecycle_stage: active
+run_id: 0146c86a977d440698ca5fc7b28d4859
+run_name: marvelous-yak-154
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761727140854
+status: 4
+tags: []
+user_id: evilk

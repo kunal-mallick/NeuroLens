@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/935490429712217924/26705dee658c447b90c330e082bb3236/artifacts
+end_time: 1761719603734
+entry_point_name: ''
+experiment_id: '935490429712217924'
+lifecycle_stage: active
+run_id: 26705dee658c447b90c330e082bb3236
+run_name: sassy-dolphin-804
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761719564493
+status: 4
+tags: []
+user_id: evilk

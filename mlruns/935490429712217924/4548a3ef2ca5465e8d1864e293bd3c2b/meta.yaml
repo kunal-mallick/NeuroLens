@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/GitHub/NeuroLens/mlruns/935490429712217924/4548a3ef2ca5465e8d1864e293bd3c2b/artifacts
+end_time: 1761721632226
+entry_point_name: ''
+experiment_id: '935490429712217924'
+lifecycle_stage: active
+run_id: 4548a3ef2ca5465e8d1864e293bd3c2b
+run_name: efficient-horse-926
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761721631448
+status: 4
+tags: []
+user_id: evilk
